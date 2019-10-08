@@ -15,6 +15,8 @@ void initLCD( void );
 void intTOstr( int ui16, char * str );
 void lcd( unsigned char x, unsigned char y, const char * ptr );
 void lcdxy( unsigned char x, unsigned char y );
+void clearLCD( void );
+
 /*
  * **************** Funções de acesso aos botões da placa do display LCD
  */

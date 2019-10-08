@@ -105,7 +105,6 @@ typedef union
 volatile LCDbits_t LCDbits __at(LCD_ADDRS);
 
 
-
 /****************** Procedimento lcdcmd
  * Entrada: Comando a ser enviado ao Display LCD.
  * Retorno: -
@@ -232,6 +231,18 @@ char lcdb1( void )
 {
     return( LCD_B1 );
 }
+
+
+/****************** Procedimento initlcd
+ * Entrada: -
+ * Retorno: -
+ * Objetivo: Limpa display LCD.
+ */
+void clearLCD( void )
+{
+    lcdcmd( LCD_CLEAR_DISPLAY );
+}
+
 
 
 /****************** Procedimento initlcd

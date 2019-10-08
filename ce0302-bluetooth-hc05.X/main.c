@@ -42,13 +42,30 @@
 #include "lcd4bitBus.h"
 #include "keyboard.h"
 #include "eusart.h"
+#include "util.h"
+
+
+void interrupt geral( void )
+{
+    INTCONbits.GIE = 0;
+
+    if( PIE1bits.RCIE && PIR1bits.RCIF )
+    {
+        interrupt_EUSART_RX();
+    }
+    
+    INTCONbits.GIE = 1;
+}
+
+
 
 
 //***************** Programa Principal
 void main(void)
 {
-    unsigned char vetor[17] = "                ";
+    unsigned char vetor[33];
     unsigned char i = 0;
+    unsigned char atcmd = 0;
     initLCD();
     initKeyboard();
     initEUSART(9600);
@@ -63,36 +80,97 @@ void main(void)
         {
             switch( currentKey() )
             {
-                case '*': 
-                            for( unsigned char j=0; j<16; j++ )
-                                vetor[j] = ' ';
-                            i = 0;
-                            lcd(0,1, vetor );             
+                case '0': 
+                            clearLCD();
+                            lcd(0,0,"     AT:");
+                            atcmd = currentKey();
                             break;
+                case '1': 
+                            clearLCD();
+                            lcd(0,0,"VERSION:");
+                            atcmd = currentKey();
+                            break;
+                case '2': 
+                            clearLCD();
+                            lcd(0,0,"   ADDR:");
+                            atcmd = currentKey();
+                            break;
+                case '3': 
+                            clearLCD();
+                            lcd(0,0,"bt NAME:");
+                            atcmd = currentKey();
+                            break;
+                case 'A': 
+                            clearLCD();
+                            lcd(0,0,"setNAME:cp-7/9");
+                            atcmd = currentKey();
+                            break;
+                case 'B': 
+                            clearLCD();
+                            lcd(0,0,"setNAME:cp-5/9");
+                            atcmd = currentKey();
+                            break;
+                case 'C': 
+                            clearLCD();
+                            lcd(0,0,"setNAME:cp-3/9");
+                            atcmd = currentKey();
+                            break;
+                case 'D': 
+                            clearLCD();
+                            lcd(0,0,"setNAME:cp-1/9");
+                            atcmd = currentKey();
+                            break;
+                case '4': 
+                            clearLCD();
+                            lcd(0,0," PASSWD:");
+                            atcmd = currentKey();
+                            break;
+                case '*': 
+                            clearLCD();
+                            lcd(0,0,"  RESET:");
+                            atcmd = currentKey();
+                            break;
+                case '#':
+                            for( i=0; i<33; i++ )
+                                vetor[i] = 0;
+                            i = 0;
 
-                default :   
-                            txEUSART(  currentKey() );    
+                            switch( atcmd )
+                            {
+                                case '0': wrEUSART("AT\r\n");               break;
+                                case '1': wrEUSART("AT+VERSION?\r\n");      break;
+                                case '2': wrEUSART("AT+ADDR?\r\n");         break;
+                                case '3': wrEUSART("AT+NAME?\r\n");         break;
+                                case 'A': wrEUSART("AT+NAME=A16-7/9\r\n");  break;
+                                case 'B': wrEUSART("AT+NAME=A16-5/9\r\n");  break;
+                                case 'C': wrEUSART("AT+NAME=A16-3/9\r\n");  break;
+                                case 'D': wrEUSART("AT+NAME=A16-1/9\r\n");  break;
+                                case '4': wrEUSART("AT+PSWD?\r\n");         break;
+                                case '*': wrEUSART("AT+RESET\r\n");         break;
+                            }
                             break;
             }
         }
 
-        if(rxStatusEUSART() )
+        switch( errorRxEUSART() )
         {
-            switch( rxErrorEUSART() )
-            {
-                case 2: lcd(0,1, "Overrun Error");
-                        rxResetErrorEUSART();
-                        break;
-                case 1: lcd(0,1, "Framing Error");
-                        rxResetErrorEUSART();
-                        break;
-                default:
-                case 0: 
-                        vetor[i] = rxEUSART();
-                        i = ++i % 16;
-                        lcd(0,1, vetor );
-                        break;
-            }
+            case 2: lcd(0,1, "Overrun Error");
+                    resetErrorRxEUSART();
+                    break;
+            case 1: lcd(0,1, "Framing Error");
+                    resetErrorRxEUSART();
+                    break;
+            default:
+            case 0: 
+                    if( statusRxEUSART() )
+                    {
+                        vetor[i] = mask( rxEUSART(), ' ', '~');
+                        i = ++i % 33;
+                        vetor[i] = 0;
+                        lcd(8,0, vetor );
+                        lcd(0,1, &vetor[8] );
+                    }
+                    break;
         }
     }
     return;

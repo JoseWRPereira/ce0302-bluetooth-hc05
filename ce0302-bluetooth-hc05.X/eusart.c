@@ -20,7 +20,7 @@
 //***************** Bibliotecas
 #include <xc.h>
 #include "config.h"
-
+#include "fifo.h"
 
 //***************** Structs
 typedef union 
@@ -39,6 +39,17 @@ extern volatile SPBRbits_t SPBRbits @ 0x099;
 
 
 
+/****************** Função rxStatusEUSART
+ * Entrada: -
+ * Retorno: 0 = dado não recebido.
+ *          1 = dado recebido.
+ * Objetivo: Verificar se algum dado foi recebido pelo canal de comunicação.
+ */
+unsigned char statusRxEUSART( void )
+{
+    return( statusFIFO() );
+}
+
 /****************** Função rxEUSART
  * Entrada: -
  * Retorno: Dado.
@@ -46,19 +57,7 @@ extern volatile SPBRbits_t SPBRbits @ 0x099;
  */
 unsigned char rxEUSART( void )
 {
-    return( RCREG );
-}
-
-
-/****************** Função rxStatusEUSART
- * Entrada: -
- * Retorno: 0 = dado não recebido.
- *          1 = dado recebido.
- * Objetivo: Verificar se algum dado foi recebido pelo canal de comunicação.
- */
-unsigned char rxStatusEUSART( void )
-{
-    return( PIR1bits.RCIF );
+    return( getFIFO() );
 }
 
 
@@ -70,7 +69,7 @@ unsigned char rxStatusEUSART( void )
  *              um dado chegou antes do anterior ser lido.
  * Objetivo: Verificar se houve erro na recepção de dados.
  */
-unsigned char rxErrorEUSART( void )
+unsigned char errorRxEUSART( void )
 {
     if( RCSTAbits.FERR )
         return( 1 );
@@ -86,7 +85,7 @@ unsigned char rxErrorEUSART( void )
  * Retorno: -
  * Objetivo: Reinicializar/limpar os indicadores(flags) de erro.
  */
-void rxResetErrorEUSART( void )
+void resetErrorRxEUSART( void )
 {
     unsigned char aux;
     
@@ -119,13 +118,33 @@ void txEUSART( unsigned char d )
 
 /****************** Função txEUSART
  * Entrada: -
- * Retorno: Indicação de dado em transmissão.
+ * Retorno: 1 : transmitindo.
+ *          0 : livre.
  * Objetivo: Indicar que um dado está sendo transmitido.
  */
-unsigned char txStatusEUSART( void )
+unsigned char statusTxEUSART( void )
 {
     return( !TXSTAbits.TRMT );
 }
+
+
+/****************** Procedimento strEUSART
+ * Entrada: String
+ * Retorno: -
+ * Objetivo: Envia sequencia de caracteres (string) pelo canal de comunicação serial.
+ */
+void wrEUSART( const char * str )
+{
+    while( *str )
+    {
+        while( !TXSTAbits.TRMT )
+            ;
+        txEUSART( *str );
+        ++str;
+    }
+    
+}
+
 
 
 /****************** Procedimento initEUSAR
@@ -147,4 +166,26 @@ void initEUSART( unsigned long baudRate )
     TXSTAbits.TXEN = 1;     // Inicia transmissão.
     RCSTAbits.CREN = 1;     // Habilita recepção.
     
+    PIE1bits.RCIE = 1;
+    INTCONbits.PEIE = 1;
+    INTCONbits.GIE = 1;
+    
+}
+
+
+void interrupt_EUSART_RX( void )
+{
+    if( RCSTAbits.FERR )
+    {
+        RCSTAbits.SPEN = 0;
+    }
+    else if( RCSTAbits.OERR )
+    {
+        RCSTAbits.CREN = 0;
+    }
+    else
+        putFIFO( RCREG );
+
+    RCSTAbits.SPEN = 1;
+    RCSTAbits.CREN = 1;
 }
